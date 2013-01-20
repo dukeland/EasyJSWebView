@@ -10,6 +10,8 @@
 
 @implementation EasyJSWebView
 
+@synthesize proxyDelegate;
+
 - (id)initWithFrame:(CGRect)frame{
     self = [super initWithFrame:frame];
     if (self) {
@@ -51,5 +53,11 @@
 	[self.proxyDelegate addJavascriptInterfaces:interface WithName:name];
 }
 
+- (void) dealloc{
+	[super dealloc];
+	
+	[self.proxyDelegate release];
+	self.proxyDelegate = nil;
+}
 
 @end

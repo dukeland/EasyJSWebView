@@ -59,11 +59,11 @@ inject: function (obj, methods){\
 @synthesize javascriptInterfaces;
 
 - (void) addJavascriptInterfaces:(NSObject*) interface WithName:(NSString*) name{
-	if (! javascriptInterfaces){
-		javascriptInterfaces = [[NSMutableDictionary alloc] init];
+	if (! self.javascriptInterfaces){
+		self.javascriptInterfaces = [[NSMutableDictionary alloc] init];
 	}
 	
-	[javascriptInterfaces setValue:interface forKey:name];
+	[self.javascriptInterfaces setValue:interface forKey:name];
 }
 
 - (void)webView:(UIWebView *)webView didFailLoadWithError:(NSError *)error{
@@ -103,7 +103,8 @@ inject: function (obj, methods){\
 		 Why do I need to create args for holding arg?
 		 It is because [invoker setArgument] fails to retain the reference of arg. args is thus created to hold the reference to prevent bad access error.
 		 */
-		NSMutableArray* args = [NSMutableArray new];
+		NSMutableArray* args = [[NSMutableArray alloc] init];
+		
 		if ([components count] > 3){
 			NSString *argsAsString = [(NSString*)[components objectAtIndex:3]
 									  stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
@@ -123,9 +124,15 @@ inject: function (obj, methods){\
 			NSString* retValue;
 			[invoker getReturnValue:&retValue];
 			
-			retValue = (NSString *)CFBridgingRelease(CFURLCreateStringByAddingPercentEscapes(NULL,(__bridge CFStringRef) retValue, NULL, (CFStringRef)@"!*'();:@&=+$,/?%#[]", kCFStringEncodingUTF8));
-			[webView stringByEvaluatingJavaScriptFromString:[@"" stringByAppendingFormat:@"EasyJS.retValue=\"%@\"", retValue]];
+			if (retValue == NULL || retValue == nil){
+				[webView stringByEvaluatingJavaScriptFromString:@"EasyJS.retValue=null;"];
+			}else{
+				retValue = (NSString *)CFBridgingRelease(CFURLCreateStringByAddingPercentEscapes(NULL,(CFStringRef) retValue, NULL, (CFStringRef)@"!*'();:@&=+$,/?%#[]", kCFStringEncodingUTF8));
+				[webView stringByEvaluatingJavaScriptFromString:[@"" stringByAppendingFormat:@"EasyJS.retValue=\"%@\";", retValue]];
+			}
 		}
+		
+		[args release];
 		
 		return NO;
 	}
@@ -140,22 +147,23 @@ inject: function (obj, methods){\
 - (void)webViewDidStartLoad:(UIWebView *)webView{
 	[self.realDelegate webViewDidStartLoad:webView];
 	
-	if (! javascriptInterfaces){
-		javascriptInterfaces = [[NSMutableDictionary alloc] init];
+	if (! self.javascriptInterfaces){
+		self.javascriptInterfaces = [[NSMutableDictionary alloc] init];
 	}
 	
 	NSMutableString* injection = [[NSMutableString alloc] init];
 	
 	//inject the javascript interface
-	for(id key in javascriptInterfaces) {
-		NSObject* interface = [javascriptInterfaces objectForKey:key];
+	for(id key in self.javascriptInterfaces) {
+		NSObject* interface = [self.javascriptInterfaces objectForKey:key];
 		
 		[injection appendString:@"EasyJS.inject(\""];
 		[injection appendString:key];
 		[injection appendString:@"\", ["];
 		
 		unsigned int mc = 0;
-		Method * mlist = class_copyMethodList(object_getClass(interface), &mc);
+		Class cls = object_getClass(interface);
+		Method * mlist = class_copyMethodList(cls, &mc);
 		for (int i = 0; i < mc; i++){
 			[injection appendString:@"\""];
 			[injection appendString:[NSString stringWithUTF8String:sel_getName(method_getName(mlist[i]))]];
@@ -165,6 +173,8 @@ inject: function (obj, methods){\
 				[injection appendString:@", "];
 			}
 		}
+		
+		free(mlist);
 		
 		[injection appendString:@"]);"];
 	}
@@ -176,6 +186,22 @@ inject: function (obj, methods){\
 	[webView stringByEvaluatingJavaScriptFromString:js];
 	//inject the function interface
 	[webView stringByEvaluatingJavaScriptFromString:injection];
+	
+	[injection release];
+}
+
+- (void)dealloc{
+	if (self.javascriptInterfaces){
+		[self.javascriptInterfaces release];
+		self.javascriptInterfaces = nil;
+	}
+	
+	if (self.realDelegate){
+		[self.realDelegate release];
+		self.realDelegate = nil;
+	}
+	
+	[super dealloc];
 }
 
 @end
