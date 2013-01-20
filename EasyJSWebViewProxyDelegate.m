@@ -99,20 +99,23 @@ inject: function (obj, methods){\
 		invoker.selector = selector;
 		invoker.target = interface;
 		
+		/*
+		 Why do I need to create args for holding arg?
+		 It is because [invoker setArgument] fails to retain the reference of arg. args is thus created to hold the reference to prevent bad access error.
+		 */
+		NSMutableArray* args = [NSMutableArray new];
 		if ([components count] > 3){
 			NSString *argsAsString = [(NSString*)[components objectAtIndex:3]
 									  stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
 			
-			if (argsAsString.length != 0){
-				NSArray* formattedArgs = [argsAsString componentsSeparatedByString:@":"];
-				for (int i = 0, l = [formattedArgs count]; i < l; i++){
-					NSString* argStr = ((NSString*) [formattedArgs objectAtIndex:i]);
-					NSString* arg = [argStr stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-					[invoker setArgument:&arg atIndex:(i + 2)];
-				}
+			NSArray* formattedArgs = [argsAsString componentsSeparatedByString:@":"];
+			for (int i = 0, l = [formattedArgs count]; i < l; i++){
+				NSString* argStr = ((NSString*) [formattedArgs objectAtIndex:i]);
+				NSString* arg = [argStr stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+				[args addObject:arg];
+				[invoker setArgument:&arg atIndex:(i + 2)];
 			}
 		}
-		
 		[invoker invoke];
 		
 		//return the value by using javascript
