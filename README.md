@@ -46,3 +46,8 @@ var str = MyJSTest.testWithRet();
 Just that simple!!! EasyJSWebView will help you do the injection. And you do not even need to use async-style writing to get the return value!!!
 
 **Try it now!!!**
+
+###Some simple facts
+* NSInvocation does not live peacefully with ARC. This library is thus a non-ARC library.
+* It supports only NSString* for message passing now.
+* We are Dukeland from Hong Kong! A group of IT-holic guys
