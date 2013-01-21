@@ -1,4 +1,4 @@
-EasyJSWebView
+EasyJSWebView - much simpler JS X Obj-C interaction
 =============
 
 You are using UIWebView in your iOS app and you want to do some communications between the Javascript inside the WebView and Objective-C. How would you do it?
