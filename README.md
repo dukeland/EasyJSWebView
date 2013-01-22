@@ -45,6 +45,29 @@ var str = MyJSTest.testWithRet();
 
 Just that simple!!! EasyJSWebView will help you do the injection. And you do not even need to use async-style writing to get the return value!!!
 
+But of course, sometimes we may need to use the async-style code. It is also supported. You can even get the return value from the callback function.
+
+```obj-c
+- (void) testWithFuncParam: (EasyJSDataFunction*) param{
+  NSLog(@"test with func");
+	
+	NSString* ret = [param executeWithParam:@"blabla:\"bla"];
+	
+	NSLog(@"Return value from callback: %@", ret);
+}
+```
+
+And in Javascript,
+
+```js
+MyJSTest.testWithFuncParam(function (data){
+	alert(data); //data would be blabla:"bla
+	return "some data";
+});
+```
+
+Simple, huh!?
+
 **Try it now!!!**
 
 ###Some simple facts
