@@ -13,6 +13,7 @@
 
 @property (nonatomic, retain) NSString* funcID;
 @property (nonatomic, retain) EasyJSWebView* webView;
+@property (nonatomic, assign) BOOL removeAfterExecute;
 
 - (id) initWithWebView: (EasyJSWebView*) _webView;
 

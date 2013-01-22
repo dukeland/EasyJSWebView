@@ -17,8 +17,9 @@
 NSString* INJECT_JS = @"window.EasyJS = {\
 __callbacks: {},\
 \
-invokeCallback: function (cbID){\
+invokeCallback: function (cbID, removeAfterExecute){\
 var args = Array.prototype.slice.call(arguments);\
+args.shift();\
 args.shift();\
 \
 for (var i = 0, l = args.length; i < l; i++){\
@@ -26,7 +27,9 @@ args[i] = decodeURIComponent(args[i]);\
 }\
 \
 var cb = EasyJS.__callbacks[cbID];\
+if (removeAfterExecute){\
 EasyJS.__callbacks[cbID] = undefined;\
+}\
 return cb.apply(null, args);\
 },\
 \

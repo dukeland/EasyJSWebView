@@ -12,6 +12,7 @@
 
 @synthesize funcID;
 @synthesize webView;
+@synthesize removeAfterExecute;
 
 - (id) initWithWebView:(EasyJSWebView *)_webView{
 	self = [super init];
@@ -33,7 +34,7 @@
 - (NSString*) executeWithParams: (NSArray*) params{
 	NSMutableString* injection = [[NSMutableString alloc] init];
 	
-	[injection appendFormat:@"EasyJS.invokeCallback(\"%@\"", self.funcID];
+	[injection appendFormat:@"EasyJS.invokeCallback(\"%@\", %@", self.funcID, self.removeAfterExecute ? @"true" : @"false"];
 	
 	if (params){
 		for (int i = 0, l = params.count; i < l; i++){
@@ -46,10 +47,10 @@
 	
 	[injection appendString:@");"];
 	
-	NSLog(@"injection: %@", injection);
-	
 	if (self.webView){
 		return [self.webView stringByEvaluatingJavaScriptFromString:injection];
+	}else{
+		return nil;
 	}
 }
 
