@@ -1,9 +1,31 @@
 window.EasyJS = {
+	__callbacks: {},
+	
+	invokeCallback: function (cbID){
+		var args = Array.prototype.slice.call(arguments);
+		args.shift();
+		
+		for (var i = 0, l = args.length; i < l; i++){
+			args[i] = decodeURIComponent(args[i]);
+		}
+		
+		var cb = EasyJS.__callbacks[cbID];
+		EasyJS.__callbacks[cbID] = undefined;
+		return cb.apply(null, args);
+	},
 	
 	call: function (obj, functionName, args){
 		var formattedArgs = [];
 		for (var i = 0, l = args.length; i < l; i++){
-			formattedArgs.push(encodeURIComponent(args[i]));
+			if (typeof args[i] == "function"){
+				formattedArgs.push("f");
+				var cbID = "__cb" + (+new Date);
+				EasyJS.__callbacks[cbID] = args[i];
+				formattedArgs.push(cbID);
+			}else{
+				formattedArgs.push("s");
+				formattedArgs.push(encodeURIComponent(args[i]));
+			}
 		}
 		
 		var argStr = (formattedArgs.length > 0 ? ":" + encodeURIComponent(formattedArgs.join(":")) : "");

@@ -7,6 +7,7 @@
 //
 
 #import "EasyJSWebViewProxyDelegate.h"
+#import "EasyJSDataFunction.h"
 #import <objc/runtime.h>
 
 /*
@@ -14,42 +15,64 @@
  Putting it inline in order to prevent loading from files
 */
 NSString* INJECT_JS = @"window.EasyJS = {\
+__callbacks: {},\
+\
+invokeCallback: function (cbID){\
+var args = Array.prototype.slice.call(arguments);\
+args.shift();\
+\
+for (var i = 0, l = args.length; i < l; i++){\
+args[i] = decodeURIComponent(args[i]);\
+}\
+\
+var cb = EasyJS.__callbacks[cbID];\
+EasyJS.__callbacks[cbID] = undefined;\
+return cb.apply(null, args);\
+},\
 \
 call: function (obj, functionName, args){\
-	var formattedArgs = [];\
-	for (var i = 0, l = args.length; i < l; i++){\
-		formattedArgs.push(encodeURIComponent(args[i]));\
-	}\
-	\
-	var argStr = (formattedArgs.length > 0 ? \":\" + encodeURIComponent(formattedArgs.join(\":\")) : \"\");\
-	\
-	var iframe = document.createElement(\"IFRAME\");\
-	iframe.setAttribute(\"src\", \"easy-js:\" + obj + \":\" + encodeURIComponent(functionName) + argStr);\
-	document.documentElement.appendChild(iframe);\
-	iframe.parentNode.removeChild(iframe);\
-	iframe = null;\
-	\
-	var ret = EasyJS.retValue;\
-	EasyJS.retValue = undefined;\
-	\
-	if (ret){\
-		return decodeURIComponent(ret);\
-	}\
+var formattedArgs = [];\
+for (var i = 0, l = args.length; i < l; i++){\
+if (typeof args[i] == \"function\"){\
+formattedArgs.push(\"f\");\
+var cbID = \"__cb\" + (+new Date);\
+EasyJS.__callbacks[cbID] = args[i];\
+formattedArgs.push(cbID);\
+}else{\
+formattedArgs.push(\"s\");\
+formattedArgs.push(encodeURIComponent(args[i]));\
+}\
+}\
+\
+var argStr = (formattedArgs.length > 0 ? \":\" + encodeURIComponent(formattedArgs.join(\":\")) : \"\");\
+\
+var iframe = document.createElement(\"IFRAME\");\
+iframe.setAttribute(\"src\", \"easy-js:\" + obj + \":\" + encodeURIComponent(functionName) + argStr);\
+document.documentElement.appendChild(iframe);\
+iframe.parentNode.removeChild(iframe);\
+iframe = null;\
+\
+var ret = EasyJS.retValue;\
+EasyJS.retValue = undefined;\
+\
+if (ret){\
+return decodeURIComponent(ret);\
+}\
 },\
 \
 inject: function (obj, methods){\
-	window[obj] = {};\
-	var jsObj = window[obj];\
-	\
-	for (var i = 0, l = methods.length; i < l; i++){\
-		(function (){\
-			var method = methods[i];\
-			var jsMethod = method.replace(new RegExp(\":\", \"g\"), \"\");\
-			jsObj[jsMethod] = function (){\
-				return EasyJS.call(obj, method, Array.prototype.slice.call(arguments));\
-			};\
-		})();\
-	}\
+window[obj] = {};\
+var jsObj = window[obj];\
+\
+for (var i = 0, l = methods.length; i < l; i++){\
+(function (){\
+var method = methods[i];\
+var jsMethod = method.replace(new RegExp(\":\", \"g\"), \"\");\
+jsObj[jsMethod] = function (){\
+return EasyJS.call(obj, method, Array.prototype.slice.call(arguments));\
+};\
+})();\
+}\
 }\
 };";
 
@@ -85,6 +108,7 @@ inject: function (obj, methods){\
 		 easy-js:MyJSTest:testWithParam%3A:haha
 		 */
 		NSArray *components = [requestString componentsSeparatedByString:@":"];
+		//NSLog(@"req: %@", requestString);
 		
 		NSString* obj = (NSString*)[components objectAtIndex:1];
 		NSString* method = [(NSString*)[components objectAtIndex:2]
@@ -99,10 +123,6 @@ inject: function (obj, methods){\
 		invoker.selector = selector;
 		invoker.target = interface;
 		
-		/*
-		 Why do I need to create args for holding arg?
-		 It is because [invoker setArgument] fails to retain the reference of arg. args is thus created to hold the reference to prevent bad access error.
-		 */
 		NSMutableArray* args = [[NSMutableArray alloc] init];
 		
 		if ([components count] > 3){
@@ -110,11 +130,20 @@ inject: function (obj, methods){\
 									  stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
 			
 			NSArray* formattedArgs = [argsAsString componentsSeparatedByString:@":"];
-			for (int i = 0, l = [formattedArgs count]; i < l; i++){
-				NSString* argStr = ((NSString*) [formattedArgs objectAtIndex:i]);
-				NSString* arg = [argStr stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-				[args addObject:arg];
-				[invoker setArgument:&arg atIndex:(i + 2)];
+			for (int i = 0, j = 0, l = [formattedArgs count]; i < l; i+=2, j++){
+				NSString* type = ((NSString*) [formattedArgs objectAtIndex:i]);
+				NSString* argStr = ((NSString*) [formattedArgs objectAtIndex:i + 1]);
+				
+				if ([@"f" isEqualToString:type]){
+					EasyJSDataFunction* func = [[EasyJSDataFunction alloc] initWithWebView:(EasyJSWebView *)webView];
+					func.funcID = argStr;
+					[args addObject:func];
+					[invoker setArgument:&func atIndex:(j + 2)];
+				}else if ([@"s" isEqualToString:type]){
+					NSString* arg = [argStr stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+					[args addObject:arg];
+					[invoker setArgument:&arg atIndex:(j + 2)];
+				}
 			}
 		}
 		[invoker invoke];
@@ -181,7 +210,6 @@ inject: function (obj, methods){\
 	
 	
 	NSString* js = INJECT_JS;
-	
 	//inject the basic functions first
 	[webView stringByEvaluatingJavaScriptFromString:js];
 	//inject the function interface
