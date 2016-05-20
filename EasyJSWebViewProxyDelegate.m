@@ -88,7 +88,7 @@ return EasyJS.call(obj, method, Array.prototype.slice.call(arguments));\
 	if (! self.javascriptInterfaces){
 		self.javascriptInterfaces = [[NSMutableDictionary alloc] init];
 	}
-	
+
 	[self.javascriptInterfaces setValue:interface forKey:name];
 }
 
@@ -101,9 +101,9 @@ return EasyJS.call(obj, method, Array.prototype.slice.call(arguments));\
 }
 
 - (BOOL)webView:(UIWebView *)webView shouldStartLoadWithRequest:(NSURLRequest *)request navigationType:(UIWebViewNavigationType)navigationType{
-	
+
 	NSString *requestString = [[request URL] absoluteString];
-	
+
 	if ([requestString hasPrefix:@"easy-js:"]) {
 		/*
 		 A sample URL structure:
@@ -112,31 +112,31 @@ return EasyJS.call(obj, method, Array.prototype.slice.call(arguments));\
 		 */
 		NSArray *components = [requestString componentsSeparatedByString:@":"];
 		//NSLog(@"req: %@", requestString);
-		
+
 		NSString* obj = (NSString*)[components objectAtIndex:1];
 		NSString* method = [(NSString*)[components objectAtIndex:2]
 							stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-		
+
 		NSObject* interface = [javascriptInterfaces objectForKey:obj];
-		
+
 		// execute the interfacing method
 		SEL selector = NSSelectorFromString(method);
 		NSMethodSignature* sig = [[interface class] instanceMethodSignatureForSelector:selector];
 		NSInvocation* invoker = [NSInvocation invocationWithMethodSignature:sig];
 		invoker.selector = selector;
 		invoker.target = interface;
-		
+
 		NSMutableArray* args = [[NSMutableArray alloc] init];
-		
+
 		if ([components count] > 3){
 			NSString *argsAsString = [(NSString*)[components objectAtIndex:3]
 									  stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-			
+
 			NSArray* formattedArgs = [argsAsString componentsSeparatedByString:@":"];
 			for (int i = 0, j = 0, l = [formattedArgs count]; i < l; i+=2, j++){
 				NSString* type = ((NSString*) [formattedArgs objectAtIndex:i]);
 				NSString* argStr = ((NSString*) [formattedArgs objectAtIndex:i + 1]);
-				
+
 				if ([@"f" isEqualToString:type]){
 					EasyJSDataFunction* func = [[EasyJSDataFunction alloc] initWithWebView:(EasyJSWebView *)webView];
 					func.funcID = argStr;
@@ -150,12 +150,13 @@ return EasyJS.call(obj, method, Array.prototype.slice.call(arguments));\
 			}
 		}
 		[invoker invoke];
-		
+
 		//return the value by using javascript
 		if ([sig methodReturnLength] > 0){
-			NSString* retValue;
-			[invoker getReturnValue:&retValue];
-			
+			NSString* __unsafe_unretained tempValue;
+			[invoker getReturnValue:&tempValue];
+			NSString* retValue = tempValue;
+
 			if (retValue == NULL || retValue == nil){
 				[webView stringByEvaluatingJavaScriptFromString:@"EasyJS.retValue=null;"];
 			}else{
@@ -163,36 +164,36 @@ return EasyJS.call(obj, method, Array.prototype.slice.call(arguments));\
 				[webView stringByEvaluatingJavaScriptFromString:[@"" stringByAppendingFormat:@"EasyJS.retValue=\"%@\";", retValue]];
 			}
 		}
-		
+
 		[args release];
-		
+
 		return NO;
 	}
-	
+
 	if (! self.realDelegate){
 		return YES;
 	}
-	
+
 	return [self.realDelegate webView:webView shouldStartLoadWithRequest:request navigationType:navigationType];
 }
 
 - (void)webViewDidStartLoad:(UIWebView *)webView{
 	[self.realDelegate webViewDidStartLoad:webView];
-	
+
 	if (! self.javascriptInterfaces){
 		self.javascriptInterfaces = [[NSMutableDictionary alloc] init];
 	}
-	
+
 	NSMutableString* injection = [[NSMutableString alloc] init];
-	
+
 	//inject the javascript interface
 	for(id key in self.javascriptInterfaces) {
 		NSObject* interface = [self.javascriptInterfaces objectForKey:key];
-		
+
 		[injection appendString:@"EasyJS.inject(\""];
 		[injection appendString:key];
 		[injection appendString:@"\", ["];
-		
+
 		unsigned int mc = 0;
 		Class cls = object_getClass(interface);
 		Method * mlist = class_copyMethodList(cls, &mc);
@@ -200,24 +201,24 @@ return EasyJS.call(obj, method, Array.prototype.slice.call(arguments));\
 			[injection appendString:@"\""];
 			[injection appendString:[NSString stringWithUTF8String:sel_getName(method_getName(mlist[i]))]];
 			[injection appendString:@"\""];
-			
+
 			if (i != mc - 1){
 				[injection appendString:@", "];
 			}
 		}
-		
+
 		free(mlist);
-		
+
 		[injection appendString:@"]);"];
 	}
-	
-	
+
+
 	NSString* js = INJECT_JS;
 	//inject the basic functions first
 	[webView stringByEvaluatingJavaScriptFromString:js];
 	//inject the function interface
 	[webView stringByEvaluatingJavaScriptFromString:injection];
-	
+
 	[injection release];
 }
 
@@ -226,12 +227,12 @@ return EasyJS.call(obj, method, Array.prototype.slice.call(arguments));\
 		[self.javascriptInterfaces release];
 		self.javascriptInterfaces = nil;
 	}
-	
+
 	if (self.realDelegate){
 		[self.realDelegate release];
 		self.realDelegate = nil;
 	}
-	
+
 	[super dealloc];
 }
 
