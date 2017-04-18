@@ -11,7 +11,7 @@ EasyJSWebView is a library that allows you to do the same in Objective-C. Downlo
 
 You may find the sample project [here](https://github.com/dukeland/EasyJSWebViewSample).
 
-###Some code to demonstrate
+### Some code to demonstrate
 So basically what you need to do is create a class like this.
 
 ```obj-c
@@ -70,7 +70,7 @@ Simple, huh!?
 
 **Try it now!!!**
 
-###Some simple facts
+### Some simple facts
 * NSInvocation does not live peacefully with ARC. This library is thus a non-ARC library.
 * It supports only NSString* for message passing now.
 * We are Dukeland from Hong Kong! A group of IT-holic guys
